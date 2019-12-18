@@ -54,7 +54,7 @@ class CoroutineViewDebugSessionListener(
 
     fun renew(suspendContext: XSuspendContext) {
         DebuggerUIUtil.invokeLater {
-            xCoroutineView.panel.tree.setRoot(xCoroutineView.createRoot(suspendContext), false)
+            xCoroutineView.saveAndRestore(suspendContext)
         }
     }
 
