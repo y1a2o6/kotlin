@@ -21,7 +21,6 @@ import com.intellij.xdebugger.XDebuggerUtil
 import com.intellij.xdebugger.XSourcePosition
 import com.sun.jdi.ClassType
 import javaslang.control.Either
-import org.jetbrains.kotlin.idea.debugger.coroutines.data.AsyncStackFrameDescriptor
 import org.jetbrains.kotlin.idea.debugger.coroutines.data.CoroutineInfoData
 import org.jetbrains.kotlin.idea.debugger.coroutines.data.SuspendStackFrameDescriptor
 import org.jetbrains.kotlin.idea.debugger.coroutines.proxy.ApplicationThreadExecutor
@@ -43,64 +42,6 @@ fun getPosition(stackTraceElement: StackTraceElement, project: Project): XSource
     val lineNumber = if (stackTraceElement.lineNumber > 0) stackTraceElement.lineNumber - 1 else return null
     return XDebuggerUtil.getInstance().createPosition(classFile, lineNumber)
 }
-
-
-/*
-
-private fun buildSuspendStackFrameChildren(descriptor: SuspendStackFrameDescriptor, frame: StackTraceElement, project: Project) {
-    val context = DebuggerManagerEx.getInstanceEx(project).context
-    val pos = getPosition(frame) ?: return
-    context.debugProcess?.managerThread?.schedule(object : SuspendContextCommandImpl(context.suspendContext) {
-        override fun contextAction() {
-            val (stack, stackFrame) = createSyntheticStackFrame(descriptor, pos) ?: return
-            val action: () -> Unit = { context.debuggerSession?.xDebugSession?.setCurrentStackFrame(stack, stackFrame) }
-            ApplicationManager.getApplication()
-                .invokeLater(action, ModalityState.stateForComponent(this@CoroutinesDebuggerTree))
-        }
-    })
-}
-
-private fun buildAsyncStackFrameChildren(descriptor: AsyncStackFrameDescriptor, process: DebugProcessImpl) {
-    process.managerThread?.schedule(object : DebuggerCommandImpl() {
-        override fun action() {
-            val context = DebuggerManagerEx.getInstanceEx(project).context
-            val proxy = ThreadReferenceProxyImpl(
-                process.virtualMachineProxy,
-                descriptor.state.thread // is not null because it's a running coroutine
-            )
-            val executionStack = JavaExecutionStack(proxy, process, false)
-            executionStack.initTopFrame()
-            val frame = descriptor.frame.createFrame(process)
-            DebuggerUIUtil.invokeLater {
-                context.debuggerSession?.xDebugSession?.setCurrentStackFrame(
-                    executionStack,
-                    frame
-                )
-            }
-        }
-    })
-}
-
-private fun buildEmptyStackFrameChildren(descriptor: EmptyStackFrameDescriptor, project: Project) {
-    val position = getPosition(descriptor.frame) ?: return
-    val context = DebuggerManagerEx.getInstanceEx(project).context
-    val suspendContext = context.suspendContext ?: return
-    val proxy = suspendContext.thread ?: return
-    context.debugProcess?.managerThread?.schedule(object : DebuggerCommandImpl() {
-        override fun action() {
-            val executionStack =
-                JavaExecutionStack(proxy, context.debugProcess!!, false)
-            executionStack.initTopFrame()
-            val frame = SyntheticStackFrame(descriptor, emptyList(), position)
-            val action: () -> Unit =
-                { context.debuggerSession?.xDebugSession?.setCurrentStackFrame(executionStack, frame) }
-            ApplicationManager.getApplication()
-                .invokeLater(action, ModalityState.stateForComponent(this@CoroutinesDebuggerTree))
-        }
-    })
-}
-
-*/
 
 class EmptyStackFrameDescriptor(val frame: StackTraceElement, proxy: StackFrameProxyImpl) :
     StackFrameDescriptorImpl(proxy, MethodsTracker()) {

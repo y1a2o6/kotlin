@@ -15,8 +15,6 @@ import org.jetbrains.kotlin.idea.debugger.coroutines.command.CoroutineStackFrame
 data class CoroutineInfoData(
     val name: String,
     val state: State,
-    val threadName: String,
-    val threadStatus: Int,
 
     val stackTrace: List<StackTraceElement>,
     // links to jdi.* references

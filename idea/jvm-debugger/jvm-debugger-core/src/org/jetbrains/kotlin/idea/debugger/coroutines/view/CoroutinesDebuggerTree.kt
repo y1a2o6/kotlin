@@ -28,6 +28,7 @@ import java.util.*
 /**
  * Tree of coroutines for [CoroutinesPanel]
  */
+@Deprecated("moved to XCoroutineView")
 class CoroutinesDebuggerTree(project: Project) : ThreadsDebuggerTree(project) {
     private val log by logger
 

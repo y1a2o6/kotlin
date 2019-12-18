@@ -19,54 +19,50 @@ import org.jetbrains.kotlin.idea.KotlinBundle
 import org.jetbrains.kotlin.idea.debugger.coroutines.data.CoroutineDescriptorData
 import org.jetbrains.kotlin.idea.debugger.coroutines.data.CoroutineInfoData
 import org.jetbrains.kotlin.idea.debugger.coroutines.proxy.CoroutinesDebugProbesProxy
-import org.jetbrains.kotlin.idea.debugger.coroutines.proxy.ManagerThreadExecutor
 import org.jetbrains.kotlin.idea.debugger.coroutines.proxy.createEvaluationContext
 import org.jetbrains.kotlin.idea.debugger.coroutines.view.CoroutinesDebuggerTree
 
+@Deprecated("moved to XCoroutineView")
 class RefreshCoroutinesTreeCommand(
     val context: DebuggerContextImpl,
     private val debuggerTree: CoroutinesDebuggerTree
 ) : SuspendContextCommandImpl(context.suspendContext) {
 
     override fun contextAction() {
-        val nf = debuggerTree.nodeFactory
-        val root = nf.defaultNode
-        val sc: SuspendContextImpl? = suspendContext
-        if (context.debuggerSession is DebuggerSession && sc is SuspendContextImpl && !sc.isResumed) {
-            val infoCache = CoroutinesDebugProbesProxy(sc).dumpCoroutines()
+        val nodeManagerImpl = debuggerTree.nodeFactory
+        val root = nodeManagerImpl.defaultNode
+        val suspendContext: SuspendContextImpl? = suspendContext
+        if (context.debuggerSession is DebuggerSession && suspendContext is SuspendContextImpl && !suspendContext.isResumed) {
+            val infoCache = CoroutinesDebugProbesProxy(suspendContext).dumpCoroutines()
             if (infoCache.isOk()) {
-                val evaluationContext = sc.createEvaluationContext()
-
+                val evaluationContext = suspendContext.createEvaluationContext()
                 for (state in infoCache.cache) {
-                    val descriptor = createCoroutineDescriptorNode(nf, state, evaluationContext)
+                    val descriptor = createCoroutineDescriptorNode(nodeManagerImpl, state, evaluationContext)
                     root.add(descriptor)
                 }
                 setRoot(root)
             } else {
                 debuggerTree.showMessage(KotlinBundle.message("debugger.session.tab.coroutine.message.failure"))
-                XDebuggerManagerImpl.NOTIFICATION_GROUP.createNotification(
-                    KotlinBundle.message("debugger.session.tab.coroutine.message.error"),
-                    MessageType.ERROR
-                )
-                    .notify(debuggerTree.project)
+                val message = KotlinBundle.message("debugger.session.tab.coroutine.message.error")
+                XDebuggerManagerImpl.NOTIFICATION_GROUP.createNotification(message, MessageType.ERROR).notify(debuggerTree.project)
             }
-        } else {
+        } else
             debuggerTree.showMessage(KotlinBundle.message("debugger.session.tab.coroutine.message.resume"))
-        }
     }
 
     private fun createCoroutineDescriptorNode(
         nodeFactory: NodeManagerImpl,
         coroutineInfoData: CoroutineInfoData,
         evaluationContext: EvaluationContextImpl
-    ) =
-        nodeFactory.createNode(
+    ): DebuggerTreeNodeImpl {
+        return nodeFactory.createNode(
             nodeFactory.getDescriptor(
                 null,
                 CoroutineDescriptorData(coroutineInfoData)
             ),
             evaluationContext
         )
+    }
 
     private fun setRoot(root: DebuggerTreeNodeImpl) {
         DebuggerInvocationUtil.swingInvokeLater(debuggerTree.project) {

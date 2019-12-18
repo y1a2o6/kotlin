@@ -8,10 +8,10 @@ package org.jetbrains.kotlin.idea.debugger.coroutines
 import com.intellij.debugger.engine.*
 import com.intellij.debugger.engine.evaluation.EvaluationContextImpl
 import com.intellij.debugger.jdi.StackFrameProxyImpl
-import com.intellij.debugger.memory.utils.StackFrameItem
 import com.sun.jdi.*
 import org.jetbrains.kotlin.idea.debugger.*
 import org.jetbrains.kotlin.idea.debugger.coroutines.data.CoroutineAsyncStackFrameItem
+import org.jetbrains.kotlin.idea.debugger.coroutines.proxy.AsyncStackTraceContext
 import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
 
 class CoroutineAsyncStackTraceProvider : AsyncStackTraceProvider {

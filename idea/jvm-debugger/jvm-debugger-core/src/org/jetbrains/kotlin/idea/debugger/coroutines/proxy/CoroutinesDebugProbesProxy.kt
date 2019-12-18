@@ -92,21 +92,11 @@ class CoroutinesDebugProbesProxy(val suspendContext: SuspendContextImpl) {
         return CoroutineInfoData(
             name,
             CoroutineInfoData.State.valueOf(state),
-            getThreadName(instance),
-            getThreadState(instance),
 
             getStackTrace(instance),
             thread,
             lastObservedFrameFieldRef
         )
-    }
-
-    private fun getThreadName(instance: ObjectReference) : String {
-        return "thread name"
-    }
-
-    private fun getThreadState(instance: ObjectReference) : Int {
-        return 1
     }
 
     private fun getName(

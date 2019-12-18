@@ -179,7 +179,8 @@ class FramesContainer(
         val threadState = if (thread != null) DebuggerUtilsEx.getThreadStatusText(thread.status()) else ""
 
         component.append("\"").append(coroutineInfoData.name, XDebuggerUIConstants.VALUE_NAME_ATTRIBUTES)
-        component.append("\": ${coroutineInfoData.state} ${if (name.isNotEmpty()) "on thread \"$name\":$threadState" else ""}")
+        val threadNameState = if (name.isNotEmpty()) "on thread \"$name\":$threadState" else ""
+        component.append("\": ${coroutineInfoData.state} $threadNameState")
         return XRegularValuePresentation(component.getCharSequence(false).toString(), null, "")
     }
 }
