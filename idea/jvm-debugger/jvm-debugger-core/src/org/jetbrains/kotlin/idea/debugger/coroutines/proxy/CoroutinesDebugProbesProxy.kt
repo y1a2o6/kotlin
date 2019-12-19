@@ -25,7 +25,7 @@ class CoroutinesDebugProbesProxy(val suspendContext: SuspendContextImpl) {
 
     // @TODO refactor to extract initialization logic
     private var executionContext: ExecutionContext = ExecutionContext(
-        EvaluationContextImpl(suspendContext, suspendContext.frameProxy),
+        suspendContext.createEvaluationContext(),
         suspendContext.frameProxy as StackFrameProxyImpl)
     // might want to use inner class but also having to monitor order of fields
     private var refs: ProcessReferences = ProcessReferences(executionContext)
@@ -89,11 +89,12 @@ class CoroutinesDebugProbesProxy(val suspendContext: SuspendContextImpl) {
         val state = getState(instance)
         val thread = getLastObservedThread(instance, refs.lastObservedThreadFieldRef)
         val lastObservedFrameFieldRef = instance.getValue(refs.lastObservedFrameFieldRef) as? ObjectReference
+        val stackTrace = emptyList<StackTraceElement>()
+//            getStackTrace(instance)
         return CoroutineInfoData(
             name,
             CoroutineInfoData.State.valueOf(state),
-
-            getStackTrace(instance),
+            stackTrace,
             thread,
             lastObservedFrameFieldRef
         )

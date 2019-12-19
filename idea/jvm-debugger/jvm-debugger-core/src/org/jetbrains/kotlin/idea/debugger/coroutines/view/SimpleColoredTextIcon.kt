@@ -116,4 +116,11 @@ class SimpleColoredTextIconPresentationRenderer() {
 
     fun SimpleColoredText.appendValue(text: String) =
         append(text, XDebuggerUIConstants.VALUE_NAME_ATTRIBUTES)
+
+    fun renderErrorNode(error: String): SimpleColoredTextIcon {
+        val label = SimpleColoredText()
+        label.append(error)
+        return SimpleColoredTextIcon(AllIcons.Debugger.ThreadStates.Exception, label)
+
+    }
 }

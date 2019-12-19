@@ -17,7 +17,10 @@ class ManagerThreadExecutor(val debugProcess: DebugProcessImpl, val priority: Pr
         val runnable = object : Runnable {
             override fun run() {f()}
         }
-        debugProcess.managerThread.schedule(priority, runnable)
+        debugProcess.managerThread.invoke(priority, runnable)
+    }
+
+    fun noschedule(f: () -> Unit) {
     }
 
     fun schedule(f: DebuggerCommandImpl) {

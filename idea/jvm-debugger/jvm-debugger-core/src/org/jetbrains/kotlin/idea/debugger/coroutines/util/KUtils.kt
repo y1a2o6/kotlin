@@ -14,11 +14,13 @@ import com.intellij.debugger.ui.impl.watch.NodeDescriptorImpl
 import com.intellij.debugger.ui.impl.watch.StackFrameDescriptorImpl
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.MessageType
 import com.intellij.openapi.util.Computable
 import com.intellij.psi.JavaPsiFacade
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.xdebugger.XDebuggerUtil
 import com.intellij.xdebugger.XSourcePosition
+import com.intellij.xdebugger.impl.XDebuggerManagerImpl
 import com.sun.jdi.ClassType
 import javaslang.control.Either
 import org.jetbrains.kotlin.idea.debugger.coroutines.data.CoroutineInfoData
@@ -45,4 +47,9 @@ fun getPosition(stackTraceElement: StackTraceElement, project: Project): XSource
 
 class EmptyStackFrameDescriptor(val frame: StackTraceElement, proxy: StackFrameProxyImpl) :
     StackFrameDescriptorImpl(proxy, MethodsTracker()) {
+}
+
+class ProjectNotification(val project: Project) {
+    fun error(message: String) =
+        XDebuggerManagerImpl.NOTIFICATION_GROUP.createNotification(message, MessageType.ERROR).notify(project)
 }

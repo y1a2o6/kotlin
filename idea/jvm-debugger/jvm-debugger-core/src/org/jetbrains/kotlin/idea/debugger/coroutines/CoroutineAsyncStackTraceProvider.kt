@@ -36,7 +36,8 @@ class CoroutineAsyncStackTraceProvider : AsyncStackTraceProvider {
 
 
         val astContext = createAsyncStackTraceContext(frameProxy, suspendContext, method)
-        return astContext.getAsyncStackTraceIfAny()
+        astContext.getAsyncStackTraceIfAny()
+        return emptyList()
     }
 
     private fun createAsyncStackTraceContext(

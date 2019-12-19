@@ -19,6 +19,7 @@ class CoroutineViewDebugSessionListener(
     val log by logger
 
     override fun sessionPaused() {
+        log.error("Session paused happened")
         val suspendContext = session.suspendContext ?: return requestClear()
         xCoroutineView.forceClear()
         renew(suspendContext)
@@ -54,11 +55,11 @@ class CoroutineViewDebugSessionListener(
 
     fun renew(suspendContext: XSuspendContext) {
         DebuggerUIUtil.invokeLater {
-            xCoroutineView.saveAndRestore(suspendContext)
+            xCoroutineView.resetRoot(suspendContext)
         }
     }
 
-    fun requestClear() {
+    private fun requestClear() {
         if (ApplicationManager.getApplication().isUnitTestMode) { // no delay in tests
             xCoroutineView.clear()
         } else {
