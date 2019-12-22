@@ -25,7 +25,6 @@ import com.intellij.openapi.diagnostic.ControlFlowException
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.RangeMarker
-import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -38,6 +37,7 @@ import com.intellij.psi.*
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.concurrency.AppExecutorUtil
 import org.jetbrains.annotations.TestOnly
+import org.jetbrains.kotlin.backend.common.serialization.findPackage
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.idea.caches.resolve.allowResolveInDispatchThread
 import org.jetbrains.kotlin.idea.caches.resolve.getResolutionFacade
@@ -342,7 +342,8 @@ class KotlinCopyPasteReferenceProcessor : CopyPastePostProcessor<BasicKotlinRefe
                     findReferences(
                         it, dummyOriginalFileTextBlocks, dummyOriginalFile, file,
                         it.startOffset,
-                        fakePkgName, sourcePkgName
+                        fakePkgName,
+                        sourcePkgName
                     )
                 )
             }
@@ -469,6 +470,7 @@ class KotlinCopyPasteReferenceProcessor : CopyPastePostProcessor<BasicKotlinRefe
         fakePackageName: String? = null,
         sourcePackageName: String
     ): References {
+        val targetPackageName = targetFile.packageDirective?.fqName?.asString() ?: ""
         val textRange = TextRange(blockStart, blockStart + data.endOffset - data.startOffset)
 
         val elementsInRange = file.elementsInRange(textRange).filter { it is KtElement || it is KDocElement }
@@ -514,16 +516,21 @@ class KotlinCopyPasteReferenceProcessor : CopyPastePostProcessor<BasicKotlinRefe
                         continue
                     }
 
-                    val importableFqName = descriptor.importableFqName?.asString()
+                    val importableFqName = descriptor.importableFqName
                     if (importableFqName == null) {
                         unresolvedReferences.add(reference)
                         continue
                     }
-                    val fqName =
+                    val importableName = importableFqName?.asString()
+                    val pkgName = descriptor.findPackage()?.fqName?.asString()
+                    val importableShortName = importableFqName.shortName().asString()
+
+                    val fqName = if (fakePackageName == pkgName) {
+                        // It is possible to resolve unnecessary references from a target package (as we resolve it from a fake package)
+                        if (sourcePackageName == targetPackageName && importableName == "$fakePackageName.$importableShortName") continue
                         // roll back to original package name when we faced faked pkg name
-                        if (fakePackageName?.let { importableFqName.startsWith(it) } == true)
-                            sourcePackageName + importableFqName.substring(fakePackageName!!.length)
-                        else importableFqName
+                        sourcePackageName + importableName.substring(fakePackageName.length)
+                    } else importableName
 
                     val kind = KotlinReferenceData.Kind.fromDescriptor(descriptor) ?: continue
                     val isQualifiable = KotlinReferenceData.isQualifiable(ktElement, descriptor)
