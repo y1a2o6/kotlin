@@ -12,8 +12,6 @@ import com.intellij.ui.ColoredTextContainer
 import com.intellij.ui.SimpleColoredComponent
 import com.intellij.ui.SimpleColoredText
 import com.intellij.ui.SimpleTextAttributes
-import com.intellij.xdebugger.frame.presentation.XRegularValuePresentation
-import com.intellij.xdebugger.frame.presentation.XValuePresentation
 import com.intellij.xdebugger.impl.ui.DebuggerUIUtil
 import com.intellij.xdebugger.impl.ui.XDebuggerUIConstants
 import com.sun.jdi.Location
@@ -29,9 +27,15 @@ class SimpleColoredTextIcon(val icon: Icon?, val text: SimpleColoredText) {
         for (pair in text.texts zip text.attributes)
             f(pair)
     }
+
+    fun simpleString(): String {
+        val component = SimpleColoredComponent()
+        appendToComponent(component)
+        return component.getCharSequence(false).toString()
+    }
 }
 
-class SimpleColoredTextIconPresentationRenderer() {
+class SimpleColoredTextIconPresentationRenderer {
     private val settings: ThreadsViewSettings = ThreadsViewSettings.getInstance()
 
     fun render(infoData: CoroutineInfoData): SimpleColoredTextIcon {
@@ -79,7 +83,7 @@ class SimpleColoredTextIconPresentationRenderer() {
             val name: String?
             name = try {
                 val refType: ReferenceType = location.declaringType()
-                refType?.name()
+                refType.name()
             } catch (e: InternalError) {
                 e.toString()
             }
@@ -104,9 +108,9 @@ class SimpleColoredTextIconPresentationRenderer() {
         return SimpleColoredTextIcon(null, label)
     }
 
-    fun renderCreationNode(): SimpleColoredTextIcon {
+    fun renderCreationNode(infoData: CoroutineInfoData): SimpleColoredTextIcon {
         val label = SimpleColoredText()
-        label.append("Creation stack frame")
+        label.append("Creation stack frame of ${infoData.name}")
         return SimpleColoredTextIcon(AllIcons.Debugger.ThreadSuspended, label)
     }
 
@@ -122,5 +126,11 @@ class SimpleColoredTextIconPresentationRenderer() {
         label.append(error)
         return SimpleColoredTextIcon(AllIcons.Debugger.ThreadStates.Exception, label)
 
+    }
+
+    fun renderRoorNode(text: String): SimpleColoredTextIcon {
+        val label = SimpleColoredText()
+        label.append(text)
+        return SimpleColoredTextIcon(null, label)
     }
 }

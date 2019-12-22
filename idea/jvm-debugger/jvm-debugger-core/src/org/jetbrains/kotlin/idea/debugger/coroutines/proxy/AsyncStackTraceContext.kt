@@ -37,7 +37,7 @@ class AsyncStackTraceContext(
         val continuation = locateContinuation() ?: return emptyList()
         val frames = mutableListOf<CoroutineAsyncStackFrameItem>()
         collectFramesRecursively(continuation, frames)
-        return frames;
+        return frames
     }
 
     private fun locateContinuation() : ObjectReference? {

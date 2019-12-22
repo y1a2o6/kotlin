@@ -19,35 +19,40 @@ class CoroutineViewDebugSessionListener(
     val log by logger
 
     override fun sessionPaused() {
-        log.error("Session paused happened")
+        log.info("XListener: sessionPaused")
         val suspendContext = session.suspendContext ?: return requestClear()
-        xCoroutineView.forceClear()
+        xCoroutineView.alarm.cancel()
         renew(suspendContext)
     }
 
     override fun sessionResumed() {
+        xCoroutineView.saveState()
+        log.info("XListener: sessionResumed")
         val suspendContext = session.suspendContext ?: return requestClear()
-        log.warn("sessionResumed ${session}")
         renew(suspendContext)
     }
 
     override fun sessionStopped() {
+        log.info("XListener: sessionStopped")
         val suspendContext = session.suspendContext ?: return requestClear()
-        log.warn("sessionStopped ${session}")
         renew(suspendContext)
     }
 
     override fun stackFrameChanged() {
-        val suspendContext = session.suspendContext ?: return requestClear()
-        log.warn("stackFrameChanged ${session}")
-        renew(suspendContext)
+        xCoroutineView.saveState()
+        log.info("XListener: stackFrameChanged")
+//        val suspendContext = session.suspendContext ?: return requestClear()
+//        log.warn("stackFrameChanged ${session}")
+//        renew(suspendContext)
     }
 
     override fun beforeSessionResume() {
+        log.info("XListener: beforeSessionResume")
         log.warn("beforeSessionResume ${session}")
     }
 
     override fun settingsChanged() {
+        log.info("XListener: settingsChanged")
         val suspendContext = session.suspendContext ?: return requestClear()
         log.warn("settingsChanged ${session}")
         renew(suspendContext)
@@ -55,13 +60,13 @@ class CoroutineViewDebugSessionListener(
 
     fun renew(suspendContext: XSuspendContext) {
         DebuggerUIUtil.invokeLater {
-            xCoroutineView.resetRoot(suspendContext)
+            xCoroutineView.renewRoot(suspendContext)
         }
     }
 
     private fun requestClear() {
         if (ApplicationManager.getApplication().isUnitTestMode) { // no delay in tests
-            xCoroutineView.clear()
+            xCoroutineView.resetRoot()
         } else {
             xCoroutineView.alarm.cancelAndRequest()
         }

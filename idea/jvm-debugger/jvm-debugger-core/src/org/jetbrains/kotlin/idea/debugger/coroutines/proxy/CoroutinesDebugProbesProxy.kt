@@ -89,8 +89,7 @@ class CoroutinesDebugProbesProxy(val suspendContext: SuspendContextImpl) {
         val state = getState(instance)
         val thread = getLastObservedThread(instance, refs.lastObservedThreadFieldRef)
         val lastObservedFrameFieldRef = instance.getValue(refs.lastObservedFrameFieldRef) as? ObjectReference
-        val stackTrace = emptyList<StackTraceElement>()
-//            getStackTrace(instance)
+        val stackTrace = getStackTrace(instance)
         return CoroutineInfoData(
             name,
             CoroutineInfoData.State.valueOf(state),

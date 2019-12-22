@@ -8,28 +8,35 @@ package org.jetbrains.kotlin.idea.debugger.coroutines.proxy
 import com.intellij.debugger.engine.DebugProcessImpl
 import com.intellij.debugger.engine.SuspendContextImpl
 import com.intellij.debugger.engine.events.DebuggerCommandImpl
+import com.intellij.debugger.engine.events.SuspendContextCommandImpl
 import com.intellij.debugger.impl.PrioritizedTask
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.util.Computable
 
-class ManagerThreadExecutor(val debugProcess: DebugProcessImpl, val priority: PrioritizedTask.Priority = PrioritizedTask.Priority.NORMAL) {
-    fun schedule(f: () -> Unit) {
-        val runnable = object : Runnable {
-            override fun run() {f()}
+class ManagerThreadExecutor(val debugProcess: DebugProcessImpl) {
+    fun on(suspendContext: SuspendContextImpl, priority: PrioritizedTask.Priority = PrioritizedTask.Priority.NORMAL) =
+        ManagerThreadExecutorInstance(suspendContext, priority)
+
+    inner class ManagerThreadExecutorInstance(
+        val suspendContext: SuspendContextImpl,
+        val priority: PrioritizedTask.Priority = PrioritizedTask.Priority.NORMAL
+    ) {
+
+        fun schedule(f: (SuspendContextImpl) -> Unit) {
+            val suspendContextCommand = object : SuspendContextCommandImpl(suspendContext) {
+                override fun getPriority() = this@ManagerThreadExecutorInstance.priority
+
+                override fun contextAction(suspendContext: SuspendContextImpl) {
+                    f(suspendContext)
+                }
+            }
+            debugProcess.managerThread.invoke(suspendContextCommand)
         }
-        debugProcess.managerThread.invoke(priority, runnable)
-    }
-
-    fun noschedule(f: () -> Unit) {
-    }
-
-    fun schedule(f: DebuggerCommandImpl) {
-        debugProcess.managerThread.schedule(f)
     }
 }
 
-class ApplicationThreadExecutor() {
-    fun <T> invoke(f: () -> T) : T {
+class ApplicationThreadExecutor {
+    fun <T> invoke(f: () -> T): T {
         return ApplicationManager.getApplication().runReadAction(Computable(f))
     }
 }

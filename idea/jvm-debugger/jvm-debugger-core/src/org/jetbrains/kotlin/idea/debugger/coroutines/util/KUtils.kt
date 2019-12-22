@@ -46,8 +46,7 @@ fun getPosition(stackTraceElement: StackTraceElement, project: Project): XSource
 }
 
 class EmptyStackFrameDescriptor(val frame: StackTraceElement, proxy: StackFrameProxyImpl) :
-    StackFrameDescriptorImpl(proxy, MethodsTracker()) {
-}
+    StackFrameDescriptorImpl(proxy, MethodsTracker())
 
 class ProjectNotification(val project: Project) {
     fun error(message: String) =

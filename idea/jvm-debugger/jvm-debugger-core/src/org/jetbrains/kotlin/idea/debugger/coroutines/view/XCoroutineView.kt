@@ -12,15 +12,15 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
 import com.intellij.ui.OnePixelSplitter
-import com.intellij.ui.SimpleColoredComponent
 import com.intellij.util.SingleAlarm
 import com.intellij.xdebugger.XDebugSession
 import com.intellij.xdebugger.frame.*
 import com.intellij.xdebugger.frame.presentation.XRegularValuePresentation
 import com.intellij.xdebugger.impl.ui.DebuggerUIUtil
 import com.intellij.xdebugger.impl.ui.tree.XDebuggerTreePanel
+import com.intellij.xdebugger.impl.ui.tree.XDebuggerTreeRestorer
+import com.intellij.xdebugger.impl.ui.tree.XDebuggerTreeState
 import com.intellij.xdebugger.impl.ui.tree.nodes.XValueContainerNode
-import com.intellij.xdebugger.impl.ui.tree.nodes.XValueGroupNodeImpl
 import com.intellij.xdebugger.impl.ui.tree.nodes.XValueNodeImpl
 import org.jetbrains.kotlin.idea.KotlinBundle
 import org.jetbrains.kotlin.idea.debugger.coroutines.CoroutineDebuggerContentInfo
@@ -34,19 +34,22 @@ import org.jetbrains.kotlin.idea.debugger.coroutines.util.CreateContentParams
 import org.jetbrains.kotlin.idea.debugger.coroutines.util.CreateContentParamsProvider
 import org.jetbrains.kotlin.idea.debugger.coroutines.util.XDebugSessionListenerProvider
 import org.jetbrains.kotlin.idea.debugger.coroutines.util.logger
-import java.util.*
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.Icon
 
 
 class XCoroutineView(val project: Project, val session: XDebugSession) :
     Disposable, XDebugSessionListenerProvider, CreateContentParamsProvider {
+    private var needToRestoreState: Boolean = false
     val log by logger
     val splitter = OnePixelSplitter("SomeKey", 0.25f)
     val panel = XDebuggerTreePanel(project, session.debugProcess.editorsProvider, this, null, XCOROUTINE_POPUP_ACTION_GROUP, null)
-    val alarm = SingleAlarm(Runnable { clear() }, VIEW_CLEAR_DELAY, this)
+    val alarm = SingleAlarm(Runnable { resetRoot() }, VIEW_CLEAR_DELAY, this)
     val debugProcess: DebugProcessImpl = (session.debugProcess as JavaDebugProcess).debuggerSession.process
     val renderer = SimpleColoredTextIconPresentationRenderer()
     val managerThreadExecutor = ManagerThreadExecutor(debugProcess)
+    var treeState: XDebuggerTreeState? = null
+    private var restorer: XDebuggerTreeRestorer? = null
 
     companion object {
         private val VIEW_CLEAR_DELAY = 100 //ms
@@ -56,25 +59,37 @@ class XCoroutineView(val project: Project, val session: XDebugSession) :
         splitter.firstComponent = panel.mainPanel
     }
 
-    fun clear() {
+    fun saveState() {
         DebuggerUIUtil.invokeLater {
-            panel.tree.setRoot(emptyNode(), false)
+            if (! (panel.tree.root is EmptyNode)) {
+                treeState = XDebuggerTreeState.saveState(panel.tree)
+                log.info("Tree state saved")
+            }
         }
     }
 
-    private fun emptyNode() =
-        object: XValueContainerNode<XValueContainer>(panel.tree, null, true, object : XValueContainer() {}) {}
+    fun resetRoot() {
+        DebuggerUIUtil.invokeLater {
+            panel.tree.setRoot(EmptyNode(), false)
+        }
+    }
+
+    fun renewRoot(suspendContext: XSuspendContext) {
+        panel.tree.setRoot(XCoroutinesRootNode(suspendContext), false)
+        if(treeState != null) {
+            restorer?.dispose()
+            restorer = treeState?.restoreState(panel.tree)
+            log.info("Tree state restored")
+        }
+    }
 
     override fun dispose() {
+        restorer?.dispose()
     }
 
     fun forceClear() {
         alarm.cancel()
-        clear()
     }
-
-    fun createRoot(suspendContext: XSuspendContext) =
-        XCoroutinesRootNode(suspendContext)
 
     override fun debugSessionListener(session: XDebugSession) =
         CoroutineViewDebugSessionListener(session, this)
@@ -88,31 +103,36 @@ class XCoroutineView(val project: Project, val session: XDebugSession) :
             panel.tree
         )
 
-    inner class XCoroutinesRootNode(suspendContext: XSuspendContext) :
-        XValueGroupNodeImpl(panel.tree, null, CoroutineGroupContainer(suspendContext))
+    inner class EmptyNode : XValueContainerNode<XValueContainer>(panel.tree, null, true, object : XValueContainer() {})
 
-    inner class CoroutineGroupContainer(val suspendContext: XSuspendContext) : XValueGroup("default") {
+    inner class XCoroutinesRootNode(suspendContext: XSuspendContext) :
+        XValueContainerNode<CoroutineGroupContainer>(panel.tree, null, false, CoroutineGroupContainer(suspendContext))
+
+    inner class CoroutineGroupContainer(val suspendContext: XSuspendContext) : XValueContainer() {
         override fun computeChildren(node: XCompositeNode) {
-            val children = XValueChildrenList.bottomGroup(CoroutineContainer(suspendContext as SuspendContextImpl, "Default group"))
-            node.addChildren(children, true)
+            val groups = XValueChildrenList.singleton(CoroutineContainer(suspendContext as SuspendContextImpl, ""))
+            node.addChildren(groups, true)
         }
     }
 
     inner class CoroutineContainer(
         val suspendContext: SuspendContextImpl,
         val groupName: String
-    ) : XValueGroup(groupName) {
+    ) : XNamedValue(groupName) {
+
+        override fun computePresentation(node: XValueNode, place: XValuePlace) {
+            node.setPresentation(AllIcons.Debugger.ThreadGroup, XRegularValuePresentation("Default", null, ""), true)
+        }
+
         override fun computeChildren(node: XCompositeNode) {
-            managerThreadExecutor.noschedule {
-//                Thread.sleep(5500)
-                val rnd = Random().nextInt()
+            managerThreadExecutor.on(suspendContext).schedule {
                 val debugProbesProxy = CoroutinesDebugProbesProxy(suspendContext)
 
                 var coroutineCache = debugProbesProxy.dumpCoroutines()
-                if(coroutineCache.isOk()) {
+                if (coroutineCache.isOk()) {
                     val children = XValueChildrenList()
                     coroutineCache.cache.forEach {
-                        children.addTopGroup(FramesContainer(it, suspendContext))
+                        children.add(FramesContainer(it, suspendContext))
                     }
                     node.addChildren(children, true)
                 } else {
@@ -120,85 +140,76 @@ class XCoroutineView(val project: Project, val session: XDebugSession) :
                 }
             }
         }
-
-        override fun isRestoreExpansion() =
-            true
-
-        override fun getIcon(): Icon? {
-            return AllIcons.Debugger.ThreadGroup
-        }
     }
 
     inner class ErrorNode(val error: String) : XNamedValue(error) {
         override fun computePresentation(node: XValueNode, place: XValuePlace) {
             applyPresentation(node, renderer.renderErrorNode(error), false)
         }
-
     }
 
     inner class FramesContainer(
         private val infoData: CoroutineInfoData,
-        private val suspendContext: SuspendContextImpl
-    ) : XValueGroup(infoData.name) {
+        private val suspendContext: SuspendContextImpl,
+        private val text : SimpleColoredTextIcon = renderer.render(infoData)
+    ) : XNamedValue(text.simpleString()) {
+
         override fun computeChildren(node: XCompositeNode) {
-            managerThreadExecutor.schedule {
+            managerThreadExecutor.on(suspendContext).schedule {
                 val debugProbesProxy = CoroutinesDebugProbesProxy(suspendContext)
                 val children = XValueChildrenList()
                 debugProbesProxy.frameBuilder().build(infoData)
                 val creationStack = mutableListOf<CreationCoroutineStackFrameItem>()
                 infoData.stackFrameList.forEach {
-                    if(it is CreationCoroutineStackFrameItem)
+                    if (it is CreationCoroutineStackFrameItem)
                         creationStack.add(it)
                     else
-                        children.add("", CoroutineFrameValue(it))
+                        children.add(CoroutineFrameValue(it))
                 }
-                children.addBottomGroup(CreationFramesContainer(creationStack))
+                children.add(CreationFramesContainer(infoData, creationStack))
                 node.addChildren(children, true)
             }
         }
 
-        override fun isRestoreExpansion() =
-            true
-
-        override fun getIcon() : Icon =
-            when (infoData.state) {
-                CoroutineInfoData.State.SUSPENDED -> AllIcons.Debugger.ThreadSuspended
-                CoroutineInfoData.State.RUNNING -> AllIcons.Debugger.ThreadRunning
-                CoroutineInfoData.State.CREATED -> AllIcons.Debugger.ThreadStates.Idle
-            }
-
-        fun computePresentation(node: XValueNode, place: XValuePlace) {
-            applyPresentation(node, renderer.render(infoData), true)
+        override fun computePresentation(node: XValueNode, place: XValuePlace) {
+            applyPresentation(node, text, true)
         }
     }
 
-    inner class CreationFramesContainer(private val creationFrames: List<CreationCoroutineStackFrameItem>) : XValueGroup("Creation stack frame") {
+    inner class CreationFramesContainer(
+        private val infoData: CoroutineInfoData,
+        private val creationFrames: List<CreationCoroutineStackFrameItem>,
+        val text: SimpleColoredTextIcon = renderer.renderCreationNode(infoData)) :
+        XNamedValue(text.simpleString()) {
+        override fun computePresentation(node: XValueNode, place: XValuePlace) {
+            applyPresentation(node, text, true)
+        }
+
         override fun computeChildren(node: XCompositeNode) {
             val children = XValueChildrenList()
 
             creationFrames.forEach {
-                children.add("", CoroutineFrameValue(it))
+                children.add(CoroutineFrameValue(it))
             }
             node.addChildren(children, true)
         }
-
-        override fun getIcon() = AllIcons.Debugger.ThreadSuspended
-
-        override fun isRestoreExpansion() =
-            true
     }
 
-    inner class CoroutineFrameValue(val frame: CoroutineStackFrameItem) : XValue() {
+    inner class CoroutineFrameValue(val frame: CoroutineStackFrameItem, val text: SimpleColoredTextIcon = renderer.render(frame.location())) :
+        XNamedValue(text.simpleString()) {
         override fun computePresentation(node: XValueNode, place: XValuePlace) =
-            applyPresentation(node, renderer.render(frame.location()), false)
+            applyPresentation(node, text, false)
     }
 
     private fun applyPresentation(node: XValueNode, presentation: SimpleColoredTextIcon, hasChildren: Boolean) {
         // set b&w by default
         blackWhiteProcess(presentation, node, hasChildren)
         // replace with colored text if supported
-        if (node is XValueNodeImpl)
+        if (node is XValueNodeImpl) {
+            blackWhiteProcess(presentation.icon, "", node, hasChildren)
             colorOverride(presentation, node)
+        } else
+            emptyList<Any>()
     }
 
     private fun colorOverride(coloredText: SimpleColoredTextIcon, node: XValueNodeImpl) {
@@ -209,23 +220,17 @@ class XCoroutineView(val project: Project, val session: XDebugSession) :
     }
 
     private fun blackWhiteProcess(coloredText: SimpleColoredTextIcon, node: XValueNode, hasChildren: Boolean) {
-        // black&white
-        val component = SimpleColoredComponent()
-        coloredText.appendToComponent(component)
-        val valuePresentation = XRegularValuePresentation(component.getCharSequence(false).toString(), null, "")
-        node.setPresentation(coloredText.icon, valuePresentation, hasChildren)
+        blackWhiteProcess(coloredText.icon, coloredText.simpleString(), node, hasChildren)
     }
 
-    fun resetRoot(suspendContext: XSuspendContext) {
-        log.error("Resetted root")
-        panel.tree.setRoot(createRoot(suspendContext), false)
+    private fun blackWhiteProcess(
+        icon: Icon?,
+        text: String,
+        node: XValueNode,
+        hasChildren: Boolean
+    ) {
+        // black&white
+        val valuePresentation = XRegularValuePresentation(text, null, "")
+        node.setPresentation(icon, valuePresentation, hasChildren)
     }
 }
-
-
-
-
-
-
-
-
