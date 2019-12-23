@@ -60,8 +60,12 @@ abstract class IrLazyDeclarationBase(
     private fun createLazyParent(): IrDeclarationParent? {
         val currentDescriptor = descriptor
 
-        val containingDeclaration =
+        val containingDeclaration0 =
             ((currentDescriptor as? PropertyAccessorDescriptor)?.correspondingProperty ?: currentDescriptor).containingDeclaration
+        val containingDeclaration = containingDeclaration0?.original
+        if (containingDeclaration !== containingDeclaration0) {
+            // TODO report problem
+        }
 
         return when (containingDeclaration) {
             is PackageFragmentDescriptor -> run {
