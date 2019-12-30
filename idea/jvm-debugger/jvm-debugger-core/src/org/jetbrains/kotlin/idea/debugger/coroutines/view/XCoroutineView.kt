@@ -57,6 +57,7 @@ class XCoroutineView(val project: Project, val session: XDebugSession) :
 
     init {
         splitter.firstComponent = panel.mainPanel
+
     }
 
     fun saveState() {
@@ -195,10 +196,16 @@ class XCoroutineView(val project: Project, val session: XDebugSession) :
         }
     }
 
-    inner class CoroutineFrameValue(val frame: CoroutineStackFrameItem, val text: SimpleColoredTextIcon = renderer.render(frame.location())) :
-        XNamedValue(text.simpleString()) {
+    inner class CoroutineFrameValue(val frame: CoroutineStackFrameItem) :
+        XNamedValue(frame.uniqueId()) {
         override fun computePresentation(node: XValueNode, place: XValuePlace) =
-            applyPresentation(node, text, false)
+            applyRenderer(node, renderer.render(frame.location()))
+//            node.setPresentation(icon)
+//            applyPresentation(node, text, false)
+    }
+
+    private fun applyRenderer(node: XValueNode, presentation: SimpleColoredTextIcon) {
+        node.setPresentation(new )
     }
 
     private fun applyPresentation(node: XValueNode, presentation: SimpleColoredTextIcon, hasChildren: Boolean) {

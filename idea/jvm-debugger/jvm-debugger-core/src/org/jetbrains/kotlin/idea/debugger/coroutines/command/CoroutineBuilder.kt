@@ -233,4 +233,8 @@ abstract class CoroutineStackFrameItem(val frame: StackFrameProxyImpl, val stack
     fun sourcePosition() : XSourcePosition? = stackFrame.sourcePosition
 
     abstract fun location(): Location
+    fun uniqueId(): String {
+        val location = location()
+        return location.sourceName() + ":" + location.method() + ":" + location.lineNumber()
+    }
 }

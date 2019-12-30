@@ -12,6 +12,7 @@ import com.intellij.ui.ColoredTextContainer
 import com.intellij.ui.SimpleColoredComponent
 import com.intellij.ui.SimpleColoredText
 import com.intellij.ui.SimpleTextAttributes
+import com.intellij.xdebugger.frame.presentation.XValuePresentation
 import com.intellij.xdebugger.impl.ui.DebuggerUIUtil
 import com.intellij.xdebugger.impl.ui.XDebuggerUIConstants
 import com.sun.jdi.Location
@@ -33,6 +34,19 @@ class SimpleColoredTextIcon(val icon: Icon?, val text: SimpleColoredText) {
         appendToComponent(component)
         return component.getCharSequence(false).toString()
     }
+}
+
+class SimpleColoredTextIconValuePresentation(val text: SimpleColoredTextIcon) : XValuePresentation() {
+    override fun getSeparator() = ""
+
+    override fun isShowName() = false
+
+    override fun renderValue(renderer: XValueTextRenderer) {
+        text.forEachTextBlock {
+//            renderer.renderValue(it.first, it.second.toTextAttributes())
+        }
+    }
+
 }
 
 class SimpleColoredTextIconPresentationRenderer {
