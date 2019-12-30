@@ -627,4 +627,38 @@ public abstract class AnnotationCodegen {
     private static AnnotationVisitor safe(@Nullable AnnotationVisitor av) {
         return av == null ? NO_ANNOTATION_VISITOR : av;
     }
+
+    public static void writeTypeAnnotations(
+            @NotNull MethodVisitor mv,
+            @NotNull GenerationState state,
+            int parameterIndex,
+            KotlinType type
+    ) {
+        if (state.getTarget() != JvmTarget.JVM_1_6) {
+            Iterable<TypePathInfo> infos =
+                    new Translator().collectTypeAnnotations(type, TypeReference.METHOD_FORMAL_PARAMETER);
+            for (TypePathInfo info : infos) {
+                //innerClassConsumer.addInnerClassInfoFromAnnotation(classDescriptor);
+
+                for (AnnotationDescriptor annotationDescriptor : info.getAnnotations()) {
+                    ClassDescriptor classDescriptor = getAnnotationClass(annotationDescriptor);
+                    assert classDescriptor != null : "Annotation descriptor has no class: " + annotationDescriptor;
+                    RetentionPolicy rp = getRetentionPolicy(classDescriptor);
+                    if (rp == RetentionPolicy.SOURCE &&
+                        !state.getTypeMapper().getClassBuilderMode().generateSourceRetentionAnnotations) {
+                        continue;
+                    }
+
+                    String descriptor = state.getTypeMapper().mapType(annotationDescriptor.getType()).getDescriptor();
+
+                    TypeReference typeReference = parameterIndex != -1 ?
+                                                  TypeReference.newFormalParameterReference(parameterIndex)
+                                                                       : TypeReference.newTypeReference(TypeReference.METHOD_RETURN);
+
+                    mv.visitTypeAnnotation(typeReference.getValue(), info.getPath(), descriptor, rp == RetentionPolicy.RUNTIME);
+                }
+            }
+        }
+    }
+
 }
