@@ -6,10 +6,12 @@
 package org.jetbrains.kotlin.idea.codeInsight
 
 import com.intellij.codeInsight.editorActions.TextBlockTransferableData
+import com.intellij.openapi.util.TextRange
 import java.awt.datatransfer.DataFlavor
 import java.io.Serializable
 
 data class TextBlock(val startOffset: Int, val endOffset: Int, val text: String)
+data class TextBlockReferenceCandidates(val textBlock: TextBlock, val referenceCandidates: List<TextRange>)
 
 class BasicKotlinReferenceTransferableData(
     val sourceFileUrl: String,
@@ -17,7 +19,7 @@ class BasicKotlinReferenceTransferableData(
     val imports: List<String>,
     val endOfImportsOffset: Int,
     val sourceText: String,
-    val textBlocks: List<TextBlock>
+    val textBlockReferenceCandidates: List<TextBlockReferenceCandidates>
 ) : TextBlockTransferableData, Serializable {
     override fun getFlavor() = dataFlavor
     override fun getOffsetCount() = 0

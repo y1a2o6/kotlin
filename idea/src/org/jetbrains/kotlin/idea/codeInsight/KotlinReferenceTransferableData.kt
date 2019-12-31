@@ -59,7 +59,7 @@ class KotlinReferenceTransferableData(
     public override fun clone() = KotlinReferenceTransferableData(Array(data.size) { data[it].clone() })
 }
 
-class KotlinReferenceData(
+data class KotlinReferenceData(
     var startOffset: Int,
     var endOffset: Int,
     val fqName: String,
